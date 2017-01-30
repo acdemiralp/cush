@@ -25,3 +25,7 @@ target_link_libraries(${ProjectName} ${ProjectLibraries})
 
 # Add tests.
 add_subdirectory(./tests)
+
+# Set config.
+set(CONF_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
+configure_file("cmake/${ProjectName}-config.cmake.in" "${PROJECT_BINARY_DIR}/${ProjectName}-config.cmake" @ONLY)
