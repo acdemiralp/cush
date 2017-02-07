@@ -102,7 +102,7 @@ GLOBAL void calculate_matrix(
   auto& vector = vectors[vector_index];
   
   // Note: Column first indexing.
-  atomicAdd(&output_matrix[vector_index + vectors_size * coefficient_index], evaluate(coefficient_index, vector[1], vector[2]));
+  atomicAdd(&output_matrix[vector_index + vectors_size * coefficient_index], evaluate(coefficient_index, vector.y, vector.z));
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename vector_type, typename precision>
