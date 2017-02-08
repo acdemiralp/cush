@@ -1,7 +1,7 @@
 #ifndef CUSH_CHOOSE_H_
 #define CUSH_CHOOSE_H_
 
-#include <config.h>
+#include <decorators.h>
 #include <factorial.h>
 
 namespace cush

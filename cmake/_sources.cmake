@@ -4,8 +4,8 @@ set(ProjectSources
 
   include/choose.h
   include/clebsch_gordan.h
-  include/config.h
   include/cush.h
+  include/decorators.h
   include/factorial.h
   include/legendre.h
   include/sign.h

@@ -4,7 +4,7 @@
 #include <math.h>
 
 #include <choose.h>
-#include <config.h>
+#include <decorators.h>
 
 namespace cush
 {

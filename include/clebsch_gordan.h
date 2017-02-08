@@ -3,7 +3,7 @@
 
 #include <math.h>
 
-#include <config.h>
+#include <decorators.h>
 #include <wigner.h>
 
 namespace cush

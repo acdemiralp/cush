@@ -9,7 +9,7 @@
 #include <vector_types.h>
 
 #include <clebsch_gordan.h>
-#include <config.h>
+#include <decorators.h>
 #include <legendre.h>
 
 // Based on "Spherical Harmonic Lighting: The Gritty Details" by Robin Green.
