@@ -5,22 +5,8 @@
 
 #include <math.h>
 
-#ifdef __CUDACC__
 #include <device_launch_parameters.h>
 #include <vector_types.h>
-#else
-struct int2
-{
-  int x;
-  int y;
-};
-struct uint3
-{
-  unsigned x;
-  unsigned y;
-  unsigned z;
-};
-#endif
 
 #include <clebsch_gordan.h>
 #include <decorators.h>
