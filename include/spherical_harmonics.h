@@ -15,6 +15,10 @@
 // Based on "Spherical Harmonic Lighting: The Gritty Details" by Robin Green.
 namespace cush
 {
+INLINE COMMON unsigned int maximum_degree   (const unsigned int coefficient_count)
+{
+  return sqrtf(coefficient_count) - 1;
+}
 INLINE COMMON unsigned int coefficient_count(const unsigned int max_degree)
 {
   return powf(max_degree + 1, 2);
