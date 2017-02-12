@@ -119,8 +119,8 @@ GLOBAL void calculate_matrices(
   
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
-
-  auto volume_index    = x + dimensions.x * (y + dimensions.y * z);
+  
+  auto volume_index    = z + dimensions.z * (y + dimensions.y * x);
   auto vectors_offset  = volume_index * vectors_size;
   auto matrices_offset = volume_index * vectors_size * coefficient_count(max_l);
 
@@ -173,8 +173,8 @@ GLOBAL void sample_sums(
   
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
-
-  auto volume_index        = x + dimensions.x * (y + dimensions.y * z);
+  
+  auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
   auto coefficients_offset = volume_index * coefficient_count(max_l);
   auto samples_offset      = volume_index * output_resolution.x * output_resolution.y;
 
@@ -222,7 +222,7 @@ GLOBAL void sample(
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
 
-  auto volume_index   = x + dimensions.x * (y + dimensions.y * z);
+  auto volume_index   = z + dimensions.z * (y + dimensions.y * x);
   auto samples_offset = volume_index * output_resolution.x * output_resolution.y;
 
   sample<<<dim3(output_resolution.x, output_resolution.y), 1>>>(
@@ -275,7 +275,7 @@ GLOBAL void product(
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
 
-  auto volume_index        = x + dimensions.x * (y + dimensions.y * z);
+  auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
   auto coefficients_offset = volume_index * coefficient_count;
 
   product<<<dim3(coefficient_count, coefficient_count, coefficient_count), 1>>>(
