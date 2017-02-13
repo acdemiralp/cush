@@ -140,6 +140,7 @@ template<typename precision, typename point_type>
 GLOBAL void sample_sum(
   const unsigned int max_l            ,
   const uint2        output_resolution,
+  const unsigned int output_offset    ,
   const precision*   coefficients     ,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
@@ -163,10 +164,10 @@ GLOBAL void sample_sum(
     point.y = 2 * M_PI * longitude_index / output_resolution.x;
     point.z =     M_PI * latitude_index  / output_resolution.y;
     
-    output_indices[indices_index]     =  longitude_index                            * output_resolution.y +  latitude_index,
-    output_indices[indices_index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[indices_index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[indices_index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
+    output_indices[indices_index    ] = output_offset +  longitude_index                            * output_resolution.y +  latitude_index,
+    output_indices[indices_index + 1] = output_offset +  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[indices_index + 2] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[indices_index + 3] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
   }
 
   atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
@@ -195,7 +196,8 @@ GLOBAL void sample_sums(
 
   sample_sum<<<dim3(output_resolution.x, output_resolution.y, coefficient_count(max_l)), 1>>>(
     max_l, 
-    output_resolution, 
+    output_resolution,
+    points_offset    ,
     coefficients   + coefficients_offset, 
     output_points  + points_offset      ,
     output_indices + indices_offset     );
@@ -207,6 +209,7 @@ GLOBAL void sample(
   const unsigned int l                ,
   const int          m                ,
   const uint2        output_resolution,
+  const unsigned int output_offset    ,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
 {
@@ -226,10 +229,10 @@ GLOBAL void sample(
   point.z =     M_PI * latitude_index  / output_resolution.y;
   point.x = evaluate(l, m, point.y, point.z);
 
-  output_indices[indices_index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
-  output_indices[indices_index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[indices_index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[indices_index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
+  output_indices[indices_index    ] = output_offset +  longitude_index                            * output_resolution.y +  latitude_index,
+  output_indices[indices_index + 1] = output_offset +  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+  output_indices[indices_index + 2] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+  output_indices[indices_index + 3] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
@@ -256,6 +259,7 @@ GLOBAL void sample(
     l,
     m,
     output_resolution,
+    points_offset    , 
     output_points  + points_offset ,
     output_indices + indices_offset);
 }
