@@ -153,19 +153,22 @@ GLOBAL void sample_sum(
       coefficient_index > coefficient_count(max_l))
     return;
 
-  auto  index = longitude_index + output_resolution.x * latitude_index;
-  auto& point = output_points[index];
+  auto points_index  = longitude_index + output_resolution.x * latitude_index;
+  auto indices_index = 4 * points_index;
+
+  auto& point = output_points[points_index];
 
   if (coefficient_index == 0)
   {
     point.y = 2 * M_PI * longitude_index / output_resolution.x;
     point.z =     M_PI * latitude_index  / output_resolution.y;
     
-    output_indices[index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
-    output_indices[index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
+    output_indices[indices_index]     =  longitude_index                            * output_resolution.y +  latitude_index,
+    output_indices[indices_index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[indices_index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[indices_index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
   }
+
   atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
@@ -213,18 +216,20 @@ GLOBAL void sample(
   if (longitude_index > output_resolution.x ||
       latitude_index  > output_resolution.y )
     return;
+  
+  auto points_index  = longitude_index + output_resolution.x * latitude_index;
+  auto indices_index = 4 * points_index;
 
-  auto  index = longitude_index + output_resolution.x * latitude_index;
-  auto& point = output_points[index];
+  auto& point = output_points[points_index];
   
   point.y = 2 * M_PI * longitude_index / output_resolution.x;
   point.z =     M_PI * latitude_index  / output_resolution.y;
   point.x = evaluate(l, m, point.y, point.z);
 
-  output_indices[index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
-  output_indices[index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
+  output_indices[indices_index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
+  output_indices[indices_index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+  output_indices[indices_index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+  output_indices[indices_index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
