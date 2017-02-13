@@ -139,7 +139,7 @@ GLOBAL void calculate_matrices(
 template<typename precision, typename point_type>
 GLOBAL void sample_sum(
   const unsigned int max_l            ,
-  const int2         output_resolution,
+  const uint2        output_resolution,
   const precision*   coefficients     ,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
@@ -173,7 +173,7 @@ template<typename precision, typename point_type>
 GLOBAL void sample_sums(
   const uint3        dimensions       ,
   const unsigned int max_l            ,
-  const int2         output_resolution,
+  const uint2        output_resolution,
   const precision*   coefficients     ,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
@@ -202,7 +202,7 @@ template<typename precision, typename point_type>
 GLOBAL void sample(
   const unsigned int l                ,
   const int          m                ,
-  const int2         output_resolution,
+  const uint2        output_resolution,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
 {
@@ -231,7 +231,7 @@ GLOBAL void sample(
   const uint3        dimensions       ,
   const unsigned int l                ,
   const int          m                ,
-  const int2         output_resolution,
+  const uint2        output_resolution,
   point_type*        output_points    ,
   unsigned int*      output_indices   )
 {
