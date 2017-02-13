@@ -153,20 +153,20 @@ GLOBAL void sample_sum(
       coefficient_index > coefficient_count(max_l))
     return;
 
-  auto  index = longitude_index * output_resolution.x + latitude_index;
+  auto  index = longitude_index + output_resolution.x * latitude_index;
   auto& point = output_points[index];
 
   if (coefficient_index == 0)
   {
     point.y = 2 * M_PI * longitude_index / output_resolution.x;
     point.z =     M_PI * latitude_index  / output_resolution.y;
+    
+    output_indices[index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
+    output_indices[index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
+    output_indices[index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
   }
   atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
-
-  output_indices[index    ] =  longitude_index                            * output_resolution.y +  latitude_index,
-  output_indices[index + 1] =  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[index + 2] = (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[index + 3] = (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
@@ -187,14 +187,15 @@ GLOBAL void sample_sums(
   
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
   auto coefficients_offset = volume_index * coefficient_count(max_l);
-  auto samples_offset      = volume_index * output_resolution.x * output_resolution.y;
+  auto points_offset       = volume_index * output_resolution.x * output_resolution.y;
+  auto indices_offset      = 4 * points_offset;
 
   sample_sum<<<dim3(output_resolution.x, output_resolution.y, coefficient_count(max_l)), 1>>>(
     max_l, 
     output_resolution, 
     coefficients   + coefficients_offset, 
-    output_points  +     samples_offset ,
-    output_indices + 4 * samples_offset );
+    output_points  + points_offset      ,
+    output_indices + indices_offset     );
 }
 
 // Call on a output_resolution.x x output_resolution.y 2D grid.
@@ -213,7 +214,7 @@ GLOBAL void sample(
       latitude_index  > output_resolution.y )
     return;
 
-  auto  index = longitude_index * output_resolution.x + latitude_index;
+  auto  index = longitude_index + output_resolution.x * latitude_index;
   auto& point = output_points[index];
   
   point.y = 2 * M_PI * longitude_index / output_resolution.x;
@@ -243,14 +244,15 @@ GLOBAL void sample(
     return;
 
   auto volume_index   = z + dimensions.z * (y + dimensions.y * x);
-  auto samples_offset = volume_index * output_resolution.x * output_resolution.y;
+  auto points_offset  = volume_index * output_resolution.x * output_resolution.y;
+  auto indices_offset = 4 * points_offset;
 
   sample<<<dim3(output_resolution.x, output_resolution.y), 1>>>(
     l,
     m,
     output_resolution,
-    output_points  +     samples_offset,
-    output_indices + 4 * samples_offset);
+    output_points  + points_offset ,
+    output_indices + indices_offset);
 }
 
 // Call on a coefficient_count x coefficient_count x coefficient_count 3D grid.
