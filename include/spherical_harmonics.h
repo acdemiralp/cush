@@ -21,7 +21,7 @@ INLINE COMMON unsigned int maximum_degree   (const unsigned int coefficient_coun
 }
 INLINE COMMON unsigned int coefficient_count(const unsigned int max_l)
 {
-  return powf(max_l + 1, 2);
+  return (max_l + 1) * (max_l + 1);
 }
 INLINE COMMON unsigned int coefficient_index(const unsigned int l, const int m)
 {
@@ -154,10 +154,15 @@ GLOBAL void sample_sum(
       coefficient_index > coefficient_count(max_l))
     return;
 
-  auto points_index  = longitude_index + output_resolution.x * latitude_index;
-  auto indices_index = 4 * points_index;
+  auto  point_index   = longitude_index * output_resolution.y + latitude_index;
+  auto  indices_index = 4 * point_index;
+  auto& point         = output_points[point_index];
 
-  auto& point = output_points[points_index];
+  atomicAdd(&point.x, evaluate(
+    coefficient_index, 
+    2 * M_PI * longitude_index / output_resolution.x, 
+        M_PI * latitude_index  / output_resolution.y) * 
+    coefficients[coefficient_index]);
 
   if (coefficient_index == 0)
   {
@@ -169,8 +174,6 @@ GLOBAL void sample_sum(
     output_indices[indices_index + 2] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
     output_indices[indices_index + 3] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
   }
-
-  atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
@@ -186,7 +189,9 @@ GLOBAL void sample_sums(
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
   auto z = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
+  if (x > dimensions.x || 
+      y > dimensions.y || 
+      z > dimensions.z )
     return;
   
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
@@ -220,10 +225,9 @@ GLOBAL void sample(
       latitude_index  > output_resolution.y )
     return;
   
-  auto points_index  = longitude_index + output_resolution.x * latitude_index;
-  auto indices_index = 4 * points_index;
-
-  auto& point = output_points[points_index];
+  auto  points_index  = longitude_index * output_resolution.y + latitude_index;
+  auto  indices_index = 4 * points_index;
+  auto& point         = output_points[points_index];
   
   point.y = 2 * M_PI * longitude_index / output_resolution.x;
   point.z =     M_PI * latitude_index  / output_resolution.y;
