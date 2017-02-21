@@ -134,7 +134,7 @@ GLOBAL void calculate_matrices(
 }
 
 // Call on a tessellations.x x tessellations.y 2D grid.
-template<typename precision, typename point_type>
+template<typename point_type>
 GLOBAL void sample(
   const unsigned int l             ,
   const int          m             ,
