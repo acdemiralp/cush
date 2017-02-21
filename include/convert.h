@@ -1,5 +1,5 @@
-#ifndef PLI_IO_CONVERT_HPP_
-#define PLI_IO_CONVERT_HPP_
+#ifndef CUSH_CONVERT_HPP_
+#define CUSH_CONVERT_HPP_
 
 #include <math.h>
 
