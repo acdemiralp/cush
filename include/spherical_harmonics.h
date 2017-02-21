@@ -60,13 +60,13 @@ COMMON precision evaluate(
   return evaluate(lm.x, lm.y, theta, phi);
 }
 
-// Not used internally as the two for loops also need to be parallelized.
+// Not used internally as the two for loops can also be further parallelized.
 template<typename precision>
 COMMON precision evaluate_sum(
   const unsigned int max_l       ,
-  const precision*   coefficients,
   const precision&   theta       ,
-  const precision&   phi         )
+  const precision&   phi         ,
+  const precision*   coefficients)
 {
   precision sum = 0.0;
   for (int l = 0; l <= max_l; l++)
@@ -88,34 +88,33 @@ COMMON precision compare(
   return sqrt(value);
 }
 
-// Call on a vectors_size x coefficient_count(max_l) 2D grid.
+// Call on a vector_count x coefficient_count(max_l) 2D grid.
 template<typename vector_type, typename precision>
 GLOBAL void calculate_matrix(
-  const unsigned int max_l        ,
-  const unsigned int vectors_size ,
-  const vector_type* vectors      , // 1D: vectors_size
-  precision*         output_matrix) // 2D: vectors_size * coefficient_count(max_l)
+  const unsigned int vector_count     ,
+  const unsigned int coefficient_count,
+  const vector_type* vectors          , 
+  precision*         output_matrix    )
 {
   auto vector_index      = blockIdx.x * blockDim.x + threadIdx.x;
   auto coefficient_index = blockIdx.y * blockDim.y + threadIdx.y;
   
-  if (vector_index      > vectors_size || 
-      coefficient_index > coefficient_count(max_l))
+  if (vector_index      > vector_count || 
+      coefficient_index > coefficient_count)
     return;
 
-  auto& vector = vectors[vector_index];
-  
-  // Note: Column first indexing.
-  atomicAdd(&output_matrix[vector_index + vectors_size * coefficient_index], evaluate(coefficient_index, vector.y, vector.z));
+  atomicAdd(
+    &output_matrix[vector_index + vector_count * coefficient_index], 
+    evaluate(coefficient_index, vectors[vector_index].y, vectors[vector_index].z));
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename vector_type, typename precision>
 GLOBAL void calculate_matrices(
-  const uint3        dimensions     ,
-  const unsigned int max_l          ,
-  const unsigned int vectors_size   ,
-  const vector_type* vectors        , // 4D: dimensions.x * dimensions.y * dimensions.z * coefficient_count(max_l)
-  precision*         output_matrices) // 5D: dimensions.x * dimensions.y * dimensions.z * vectors_size * coefficient_count(max_l)
+  const uint3        dimensions       ,
+  const unsigned int vector_count     , 
+  const unsigned int coefficient_count,
+  const vector_type* vectors          ,
+  precision*         output_matrices  )
 {
   auto x = blockIdx.x * blockDim.x + threadIdx.x;
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -124,66 +123,89 @@ GLOBAL void calculate_matrices(
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
   
-  auto volume_index    = z + dimensions.z * (y + dimensions.y * x);
-  auto vectors_offset  = volume_index * vectors_size;
-  auto matrices_offset = volume_index * vectors_size * coefficient_count(max_l);
+  auto vectors_offset = vector_count  * (z + dimensions.z * (y + dimensions.y * x));
+  auto matrix_offset  = vectors_offset * coefficient_count;
 
-  calculate_matrix<<<dim3(vectors_size, coefficient_count(max_l)), 1>>>(
-    max_l, 
-    vectors_size, 
-    vectors         + vectors_offset , 
-    output_matrices + matrices_offset);
+  calculate_matrix<<<dim3(vector_count, coefficient_count), 1>>>(
+    vector_count     , 
+    coefficient_count, 
+    vectors         + vectors_offset, 
+    output_matrices + matrix_offset );
 }
 
-// Call on a output_resolution.x x output_resolution.y x coefficient_count(max_l) 3D grid.
+// Call on a tessellations.x x tessellations.y 2D grid.
+template<typename precision, typename point_type>
+GLOBAL void sample(
+  const unsigned int l             ,
+  const int          m             ,
+  const uint2        tessellations ,
+  point_type*        output_points ,
+  unsigned int*      output_indices)
+{
+  auto longitude = blockIdx.x * blockDim.x + threadIdx.x;
+  auto latitude  = blockIdx.y * blockDim.y + threadIdx.y;
+  
+  if (longitude > tessellations.x ||
+      latitude  > tessellations.y )
+    return;
+  
+  auto point_offset = latitude + longitude * tessellations.y;
+  auto index_offset = 4 * point_offset;
+
+  auto& point = output_points[point_offset];
+  point.y = 2 * M_PI * longitude / tessellations.x;
+  point.z =     M_PI * latitude  / tessellations.y;
+  point.x = evaluate(l, m, point.y, point.z);
+
+  output_indices[index_offset    ] =  longitude                        * tessellations.y +  latitude,
+  output_indices[index_offset + 1] =  longitude                        * tessellations.y + (latitude + 1) % tessellations.y,
+  output_indices[index_offset + 2] = (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
+  output_indices[index_offset + 3] = (longitude + 1) % tessellations.x * tessellations.y +  latitude;
+}
+// Call on a tessellations.x x tessellations.y x coefficient_count(max_l) 3D grid.
 template<typename precision, typename point_type>
 GLOBAL void sample_sum(
-  const unsigned int max_l            ,
-  const uint2        output_resolution,
-  const unsigned int output_offset    ,
-  const precision*   coefficients     ,
-  point_type*        output_points    ,
-  unsigned int*      output_indices   )
+  const unsigned int coefficient_count   ,
+  const uint2        tessellations       ,
+  const precision*   coefficients        ,
+  point_type*        output_points       ,
+  unsigned int*      output_indices      ,
+  const unsigned int base_index          = 0)
 {
-  auto longitude_index   = blockIdx.x * blockDim.x + threadIdx.x;
-  auto latitude_index    = blockIdx.y * blockDim.y + threadIdx.y;
+  auto longitude         = blockIdx.x * blockDim.x + threadIdx.x;
+  auto latitude          = blockIdx.y * blockDim.y + threadIdx.y;
   auto coefficient_index = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (longitude_index   > output_resolution.x    ||
-      latitude_index    > output_resolution.y    ||
-      coefficient_index > coefficient_count(max_l))
+  if (longitude         > tessellations.x  ||
+      latitude          > tessellations.y  ||
+      coefficient_index > coefficient_count)
     return;
 
-  auto  point_index   = longitude_index * output_resolution.y + latitude_index;
-  auto  indices_index = 4 * point_index;
-  auto& point         = output_points[point_index];
+  auto point_offset = latitude + longitude * tessellations.y;
+  auto index_offset = 4 * point_offset;
 
-  atomicAdd(&point.x, evaluate(
-    coefficient_index, 
-    2 * M_PI * longitude_index / output_resolution.x, 
-        M_PI * latitude_index  / output_resolution.y) * 
-    coefficients[coefficient_index]);
+  auto& point = output_points[point_offset];
+  point.y = 2 * M_PI * longitude / tessellations.x;
+  point.z =     M_PI * latitude  / tessellations.y;
+  atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
 
   if (coefficient_index == 0)
   {
-    point.y = 2 * M_PI * longitude_index / output_resolution.x;
-    point.z =     M_PI * latitude_index  / output_resolution.y;
-    
-    output_indices[indices_index    ] = output_offset +  longitude_index                            * output_resolution.y +  latitude_index,
-    output_indices[indices_index + 1] = output_offset +  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[indices_index + 2] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-    output_indices[indices_index + 3] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
+    output_indices[index_offset    ] = base_index +  longitude                        * tessellations.y +  latitude,
+    output_indices[index_offset + 1] = base_index +  longitude                        * tessellations.y + (latitude + 1) % tessellations.y,
+    output_indices[index_offset + 2] = base_index + (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
+    output_indices[index_offset + 3] = base_index + (longitude + 1) % tessellations.x * tessellations.y +  latitude;
   }
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
 GLOBAL void sample_sums(
-  const uint3        dimensions       ,
-  const unsigned int max_l            ,
-  const uint2        output_resolution,
-  const precision*   coefficients     ,
-  point_type*        output_points    ,
-  unsigned int*      output_indices   )
+  const uint3        dimensions         ,
+  const unsigned int coefficient_count  ,
+  const uint2        tessellations      ,
+  const precision*   coefficients       ,
+  point_type*        output_points      ,
+  unsigned int*      output_indices     )
 {
   auto x = blockIdx.x * blockDim.x + threadIdx.x;
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -195,77 +217,17 @@ GLOBAL void sample_sums(
     return;
   
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
-  auto coefficients_offset = volume_index * coefficient_count(max_l);
-  auto points_offset       = volume_index * output_resolution.x * output_resolution.y;
+  auto coefficients_offset = volume_index * coefficient_count;
+  auto points_offset       = volume_index * tessellations.x * tessellations.y;
   auto indices_offset      = 4 * points_offset;
 
-  sample_sum<<<dim3(output_resolution.x, output_resolution.y, coefficient_count(max_l)), 1>>>(
-    max_l, 
-    output_resolution,
-    points_offset    ,
+  sample_sum<<<dim3(tessellations.x, tessellations.y, coefficient_count), 1>>>(
+    coefficient_count,
+    tessellations    ,
     coefficients   + coefficients_offset, 
     output_points  + points_offset      ,
-    output_indices + indices_offset     );
-}
-
-// Call on a output_resolution.x x output_resolution.y 2D grid.
-template<typename precision, typename point_type>
-GLOBAL void sample(
-  const unsigned int l                ,
-  const int          m                ,
-  const uint2        output_resolution,
-  const unsigned int output_offset    ,
-  point_type*        output_points    ,
-  unsigned int*      output_indices   )
-{
-  auto longitude_index = blockIdx.x * blockDim.x + threadIdx.x;
-  auto latitude_index  = blockIdx.y * blockDim.y + threadIdx.y;
-  
-  if (longitude_index > output_resolution.x ||
-      latitude_index  > output_resolution.y )
-    return;
-  
-  auto  points_index  = longitude_index * output_resolution.y + latitude_index;
-  auto  indices_index = 4 * points_index;
-  auto& point         = output_points[points_index];
-  
-  point.y = 2 * M_PI * longitude_index / output_resolution.x;
-  point.z =     M_PI * latitude_index  / output_resolution.y;
-  point.x = evaluate(l, m, point.y, point.z);
-
-  output_indices[indices_index    ] = output_offset +  longitude_index                            * output_resolution.y +  latitude_index,
-  output_indices[indices_index + 1] = output_offset +  longitude_index                            * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[indices_index + 2] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y + (latitude_index + 1) % output_resolution.y,
-  output_indices[indices_index + 3] = output_offset + (longitude_index + 1) % output_resolution.x * output_resolution.y +  latitude_index;
-}
-// Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
-template<typename precision, typename point_type>
-GLOBAL void sample(
-  const uint3        dimensions       ,
-  const unsigned int l                ,
-  const int          m                ,
-  const uint2        output_resolution,
-  point_type*        output_points    ,
-  unsigned int*      output_indices   )
-{
-  auto x = blockIdx.x * blockDim.x + threadIdx.x;
-  auto y = blockIdx.y * blockDim.y + threadIdx.y;
-  auto z = blockIdx.z * blockDim.z + threadIdx.z;
-  
-  if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
-    return;
-
-  auto volume_index   = z + dimensions.z * (y + dimensions.y * x);
-  auto points_offset  = volume_index * output_resolution.x * output_resolution.y;
-  auto indices_offset = 4 * points_offset;
-
-  sample<<<dim3(output_resolution.x, output_resolution.y), 1>>>(
-    l,
-    m,
-    output_resolution,
-    points_offset    , 
-    output_points  + points_offset ,
-    output_indices + indices_offset);
+    output_indices + indices_offset     ,
+    points_offset);
 }
 
 // Call on a coefficient_count x coefficient_count x coefficient_count 3D grid.
@@ -311,8 +273,7 @@ GLOBAL void product(
   if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
     return;
 
-  auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
-  auto coefficients_offset = volume_index * coefficient_count;
+  auto coefficients_offset = coefficient_count * (z + dimensions.z * (y + dimensions.y * x));
 
   product<<<dim3(coefficient_count, coefficient_count, coefficient_count), 1>>>(
     coefficient_count,
