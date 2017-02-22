@@ -11,5 +11,6 @@ set(ProjectSources
   include/legendre.h
   include/sign.h
   include/spherical_harmonics.h
+  include/vector_ops.h
   include/wigner.h
 )
