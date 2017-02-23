@@ -17,7 +17,7 @@ include("cmake/assign_source_group.cmake")
 assign_source_group(${ProjectSources})
 
 # Specify executable.
-add_executable(${ProjectName} ${ProjectSources})
+cuda_add_executable(${ProjectName} ${ProjectSources})
 
 # Link libraries.
 target_link_libraries(${ProjectName} ${ProjectLibraries})

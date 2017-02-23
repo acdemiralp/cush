@@ -150,7 +150,7 @@ GLOBAL void sample(
     return;
   
   auto point_offset = latitude + longitude * tessellations.y;
-  auto index_offset = 4 * point_offset;
+  auto index_offset = 6 * point_offset;
 
   auto& point = output_points[point_offset];
   point.y = 2 * M_PI * longitude / tessellations.x;
@@ -160,7 +160,9 @@ GLOBAL void sample(
   output_indices[index_offset    ] =  longitude                        * tessellations.y +  latitude,
   output_indices[index_offset + 1] =  longitude                        * tessellations.y + (latitude + 1) % tessellations.y,
   output_indices[index_offset + 2] = (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
-  output_indices[index_offset + 3] = (longitude + 1) % tessellations.x * tessellations.y +  latitude;
+  output_indices[index_offset + 3] =  longitude                        * tessellations.y +  latitude,
+  output_indices[index_offset + 4] = (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
+  output_indices[index_offset + 5] = (longitude + 1) % tessellations.x * tessellations.y +  latitude;
 }
 // Call on a tessellations.x x tessellations.y x coefficient_count(max_l) 3D grid.
 template<typename precision, typename point_type>
@@ -182,7 +184,7 @@ GLOBAL void sample_sum(
     return;
 
   auto point_offset = latitude + longitude * tessellations.y;
-  auto index_offset = 4 * point_offset;
+  auto index_offset = 6 * point_offset;
 
   auto& point = output_points[point_offset];
   point.y = 2 * M_PI * longitude / tessellations.x;
@@ -194,7 +196,9 @@ GLOBAL void sample_sum(
     output_indices[index_offset    ] = base_index +  longitude                        * tessellations.y +  latitude,
     output_indices[index_offset + 1] = base_index +  longitude                        * tessellations.y + (latitude + 1) % tessellations.y,
     output_indices[index_offset + 2] = base_index + (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
-    output_indices[index_offset + 3] = base_index + (longitude + 1) % tessellations.x * tessellations.y +  latitude;
+    output_indices[index_offset + 3] = base_index +  longitude                        * tessellations.y +  latitude,
+    output_indices[index_offset + 4] = base_index + (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
+    output_indices[index_offset + 5] = base_index + (longitude + 1) % tessellations.x * tessellations.y +  latitude;
   }
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
@@ -219,7 +223,7 @@ GLOBAL void sample_sums(
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
   auto coefficients_offset = volume_index * coefficient_count;
   auto points_offset       = volume_index * tessellations.x * tessellations.y;
-  auto indices_offset      = 4 * points_offset;
+  auto indices_offset      = 6 * points_offset;
 
   sample_sum<<<dim3(tessellations.x, tessellations.y, coefficient_count), 1>>>(
     coefficient_count,
