@@ -13,4 +13,6 @@ set(ProjectSources
   include/spherical_harmonics.h
   include/vector_ops.h
   include/wigner.h
+  
+  source/nothing.cpp
 )
