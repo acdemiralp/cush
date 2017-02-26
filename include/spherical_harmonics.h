@@ -213,7 +213,8 @@ GLOBAL void sample_sums(
   const uint2        tessellations      ,
   const precision*   coefficients       ,
   point_type*        output_points      ,
-  unsigned int*      output_indices     )
+  unsigned int*      output_indices     ,
+  const unsigned int base_index         = 0)
 {
   auto x = blockIdx.x * blockDim.x + threadIdx.x;
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -235,7 +236,7 @@ GLOBAL void sample_sums(
     coefficients   + coefficients_offset, 
     output_points  + points_offset      ,
     output_indices + indices_offset     ,
-    points_offset);
+    base_index     + points_offset      );
 }
 
 // Call on a coefficient_count x coefficient_count x coefficient_count 3D grid.
