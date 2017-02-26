@@ -8,7 +8,7 @@
   #define DEVICE __device__
   #define SHARED __shared__
   #define INLINE __forceinline__ inline
-  #define CONST  __constant__ const
+  #define CONSTANT  __constant__ const
 
 #else
 
@@ -17,7 +17,7 @@
   #define DEVICE
   #define SHARED
   #define INLINE inline
-  #define CONST  const
+  #define CONSTANT  const
 
 #endif
 
