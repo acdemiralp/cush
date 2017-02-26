@@ -76,6 +76,18 @@ COMMON precision evaluate_sum(
 }
 
 template<typename precision>
+COMMON precision is_zero(
+  const unsigned int coefficient_count,
+  const precision*   coefficients )
+{
+  precision value = 0;
+  for (auto index = 0; index < coefficient_count; index++)
+    if (coefficients[index] != precision(0))
+      return false;
+  return true;
+}
+
+template<typename precision>
 COMMON precision l1_distance(
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
