@@ -165,8 +165,8 @@ GLOBAL void sample(
   auto index_offset = 6 * point_offset;
 
   auto& point = output_points[point_offset];
-  point.y = 2 * M_PI * longitude / tessellations.x;
-  point.z =     M_PI * latitude  / tessellations.y;
+  point.y = 2 * M_PI * longitude /  tessellations.x;
+  point.z =     M_PI * latitude  / (tessellations.y - 1);
   point.x = evaluate(l, m, point.y, point.z);
 
   output_indices[index_offset    ] =  longitude                        * tessellations.y +  latitude,
@@ -203,8 +203,8 @@ GLOBAL void sample_sum(
   if (coefficient_index == 0)
     point.x = 0;
   
-  point.y = 2 * M_PI * longitude / tessellations.x;
-  point.z =     M_PI * latitude  / tessellations.y;
+  point.y = 2 * M_PI * longitude /  tessellations.x;
+  point.z =     M_PI * latitude  / (tessellations.y - 1);
   atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
 
   if (coefficient_index == 0)
