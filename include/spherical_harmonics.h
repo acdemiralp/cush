@@ -75,9 +75,21 @@ COMMON precision evaluate_sum(
   return sum;
 }
 
+template<typename precision>
+COMMON precision l1_distance(
+  const unsigned int coefficient_count,
+  const precision*   lhs_coefficients ,
+  const precision*   rhs_coefficients )
+{
+  precision value = 0;
+  for (auto index = 0; index < coefficient_count; index++)
+    value += abs(lhs_coefficients[index] - rhs_coefficients[index]);
+  return value;
+}
+
 // Based on "Rotation Invariant Spherical Harmonic Representation of 3D Shape Descriptors" by Kazhdan et al.
 template<typename precision>
-COMMON precision compare(
+COMMON precision l2_distance(
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
   const precision*   rhs_coefficients )
