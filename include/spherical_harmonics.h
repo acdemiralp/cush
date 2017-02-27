@@ -132,8 +132,8 @@ GLOBAL void calculate_matrix(
   auto vector_index      = blockIdx.x * blockDim.x + threadIdx.x;
   auto coefficient_index = blockIdx.y * blockDim.y + threadIdx.y;
   
-  if (vector_index      > vector_count || 
-      coefficient_index > coefficient_count)
+  if (vector_index      >= vector_count     || 
+      coefficient_index >= coefficient_count)
     return;
 
   atomicAdd(
@@ -153,7 +153,7 @@ GLOBAL void calculate_matrices(
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
   auto z = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
+  if (x >= dimensions.x || y >= dimensions.y || z >= dimensions.z)
     return;
   
   auto vectors_offset = vector_count  * (z + dimensions.z * (y + dimensions.y * x));
@@ -184,8 +184,8 @@ GLOBAL void sample(
   auto longitude = blockIdx.x * blockDim.x + threadIdx.x;
   auto latitude  = blockIdx.y * blockDim.y + threadIdx.y;
   
-  if (longitude > tessellations.x ||
-      latitude  > tessellations.y )
+  if (longitude >= tessellations.x ||
+      latitude  >= tessellations.y )
     return;
   
   auto point_offset = latitude + longitude * tessellations.y;
@@ -217,9 +217,9 @@ GLOBAL void sample_sum(
   auto latitude          = blockIdx.y * blockDim.y + threadIdx.y;
   auto coefficient_index = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (longitude         > tessellations.x  ||
-      latitude          > tessellations.y  ||
-      coefficient_index > coefficient_count)
+  if (longitude         >= tessellations.x  ||
+      latitude          >= tessellations.y  ||
+      coefficient_index >= coefficient_count)
     return;
 
   auto point_offset = latitude + longitude * tessellations.y;
@@ -259,9 +259,9 @@ GLOBAL void sample_sums(
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
   auto z = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (x > dimensions.x || 
-      y > dimensions.y || 
-      z > dimensions.z )
+  if (x >= dimensions.x || 
+      y >= dimensions.y || 
+      z >= dimensions.z )
     return;
   
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
@@ -297,9 +297,9 @@ GLOBAL void product(
   auto rhs_index = blockIdx.y * blockDim.y + threadIdx.y;
   auto out_index = blockIdx.z * blockDim.z + threadIdx.z;
   
-  if (lhs_index > coefficient_count ||
-      rhs_index > coefficient_count ||
-      out_index > coefficient_count)
+  if (lhs_index >= coefficient_count ||
+      rhs_index >= coefficient_count ||
+      out_index >= coefficient_count)
     return;
 
   auto lhs_lm   = coefficient_lm(lhs_index);
@@ -324,7 +324,7 @@ GLOBAL void product(
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
   auto z = blockIdx.z * blockDim.z + threadIdx.z;
 
-  if (x > dimensions.x || y > dimensions.y || z > dimensions.z)
+  if (x >= dimensions.x || y >= dimensions.y || z >= dimensions.z)
     return;
 
   auto coefficients_offset = coefficient_count * (z + dimensions.z * (y + dimensions.y * x));
