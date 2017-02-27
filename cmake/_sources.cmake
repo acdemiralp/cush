@@ -8,6 +8,7 @@ set(ProjectSources
   include/cush.h
   include/decorators.h
   include/factorial.h
+  include/launch.h
   include/legendre.h
   include/sign.h
   include/spherical_harmonics.h

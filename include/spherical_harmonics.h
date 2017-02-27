@@ -10,20 +10,12 @@
 
 #include <clebsch_gordan.h>
 #include <decorators.h>
+#include <launch.h>
 #include <legendre.h>
 
 // Based on "Spherical Harmonic Lighting: The Gritty Details" by Robin Green.
 namespace cush
-{ 
-INLINE COMMON dim3         block_size_2d    ()
 {
-  return {16, 16, 1};
-}
-INLINE COMMON dim3         block_size_3d    ()
-{
-  return{8, 8, 8};
-}
-
 INLINE COMMON unsigned int maximum_degree   (const unsigned int coefficient_count)
 {
   return sqrtf(coefficient_count) - 1;
@@ -159,13 +151,7 @@ GLOBAL void calculate_matrices(
   auto vectors_offset = vector_count  * (z + dimensions.z * (y + dimensions.y * x));
   auto matrix_offset  = vectors_offset * coefficient_count;
   
-  dim3 block_size = block_size_2d();
-  dim3 grid_size {
-    ceil(float(vector_count     ) / block_size.x),
-    ceil(float(coefficient_count) / block_size.y),
-    1};
-
-  calculate_matrix<<<grid_size, block_size>>>(
+  calculate_matrix<<<grid_size_2d(dim3(vector_count, coefficient_count)), block_size_2d()>>>(
     vector_count     , 
     coefficient_count, 
     vectors         + vectors_offset, 
@@ -269,13 +255,7 @@ GLOBAL void sample_sums(
   auto points_offset       = volume_index * tessellations.x * tessellations.y;
   auto indices_offset      = 6 * points_offset;
 
-  dim3 block_size = block_size_3d();
-  dim3 grid_size {
-    ceil(float(tessellations.x  ) / block_size.x),
-    ceil(float(tessellations.y  ) / block_size.y),
-    ceil(float(coefficient_count) / block_size.z)};
-
-  sample_sum<<<grid_size, block_size>>>(
+  sample_sum<<<grid_size_3d(dim3(tessellations.x, tessellations.y, coefficient_count)), block_size_3d()>>>(
     coefficient_count,
     tessellations    ,
     coefficients   + coefficients_offset, 
@@ -329,13 +309,7 @@ GLOBAL void product(
 
   auto coefficients_offset = coefficient_count * (z + dimensions.z * (y + dimensions.y * x));
   
-  dim3 block_size = block_size_3d();
-  dim3 grid_size {
-    ceil(float(coefficient_count) / block_size.x),
-    ceil(float(coefficient_count) / block_size.y),
-    ceil(float(coefficient_count) / block_size.z)};
-
-  product<<<grid_size, block_size>>>(
+  product<<<grid_size_3d(dim3(coefficient_count, coefficient_count, coefficient_count)), block_size_3d()>>>(
     coefficient_count,
     lhs_coefficients + coefficients_offset,
     rhs_coefficients + coefficients_offset,
