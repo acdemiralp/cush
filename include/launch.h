@@ -11,15 +11,15 @@ namespace cush
 {
 INLINE COMMON unsigned block_size_1d()
 {
-  return 32;
+  return 64;
 }
 INLINE COMMON dim3     block_size_2d()
 {
-  return {16, 16, 1};
+  return {32, 32, 1};
 }
 INLINE COMMON dim3     block_size_3d()
 {
-  return {8, 8, 8};
+  return {16, 16, 4};
 }
 
 INLINE COMMON unsigned grid_size_1d(unsigned target_dimension )
