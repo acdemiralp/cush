@@ -5,6 +5,7 @@
 
 #include <math.h>
 
+#include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <vector_types.h>
 
@@ -239,7 +240,8 @@ GLOBAL void sample_sums(
   const precision*   coefficients       ,
   point_type*        output_points      ,
   unsigned int*      output_indices     ,
-  const unsigned int base_index         = 0)
+  const unsigned int base_index         = 0   ,
+  const bool         normalize          = true)
 {
   auto x = blockIdx.x * blockDim.x + threadIdx.x;
   auto y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -252,7 +254,8 @@ GLOBAL void sample_sums(
   
   auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
   auto coefficients_offset = volume_index * coefficient_count;
-  auto points_offset       = volume_index * tessellations.x * tessellations.y;
+  auto points_size         = tessellations.x * tessellations.y;
+  auto points_offset       = volume_index * points_size;
   auto indices_offset      = 6 * points_offset;
 
   sample_sum<<<grid_size_3d(dim3(tessellations.x, tessellations.y, coefficient_count)), block_size_3d()>>>(
@@ -262,6 +265,18 @@ GLOBAL void sample_sums(
     output_points  + points_offset      ,
     output_indices + indices_offset     ,
     base_index     + points_offset      );
+  
+  cudaDeviceSynchronize();
+
+  if (normalize)
+  {
+    auto maxima = 0.0;
+    for (auto i = 0; i < points_size; i++)
+      if (maxima < output_points[points_offset + i].x)
+        maxima = output_points[points_offset + i].x;
+    for (auto i = 0; i < points_size; i++)
+      output_points[points_offset + i].x = output_points[points_offset + i].x / maxima;
+  }
 }
 
 // Call on a coefficient_count x coefficient_count x coefficient_count 3D grid.
