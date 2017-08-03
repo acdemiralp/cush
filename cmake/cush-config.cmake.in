@@ -1,6 +1,0 @@
-# - Config file for the Cush package
-# It defines the following variables
-#  CUSH_INCLUDE_DIRS - include directories for Cush
-
-# Compute paths
-set(CUSH_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")

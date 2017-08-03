@@ -1,8 +1,8 @@
-#include <catch.hpp>
+#include "catch.hpp"
 
-#include <legendre.h>
+#include <cush/legendre.h>
 
-TEST_CASE("4- Associated Legendre polynomials are computed.", "[legendre]") {
+TEST_CASE("Associated Legendre polynomials are computed.", "[legendre]") {
   REQUIRE(cush::associated_legendre(0 , 0, 0.5) == Approx(1             ));
   REQUIRE(cush::associated_legendre(2 , 0, 0.5) == Approx(-0.125        ));
   REQUIRE(cush::associated_legendre(2 , 2, 0.5) == Approx(2.25          ));

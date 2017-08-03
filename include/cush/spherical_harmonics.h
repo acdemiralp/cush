@@ -3,42 +3,42 @@
 
 #define _USE_MATH_DEFINES
 
-#include <math.h>
-
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
+#include <math.h>
 #include <vector_types.h>
+#include <thrust/sort.h>
 
-#include <clebsch_gordan.h>
-#include <decorators.h>
-#include <launch.h>
-#include <legendre.h>
+#include <cush/clebsch_gordan.h>
+#include <cush/factorial.h>
+#include <cush/launch.h>
+#include <cush/legendre.h>
 
 // Based on "Spherical Harmonic Lighting: The Gritty Details" by Robin Green.
 namespace cush
 {
-INLINE COMMON unsigned int maximum_degree   (const unsigned int coefficient_count)
+__forceinline__ __host__ __device__ unsigned int maximum_degree   (const unsigned int coefficient_count)
 {
-  return sqrtf(coefficient_count) - 1;
+  return unsigned(sqrtf(float(coefficient_count)) - 1);
 }
-INLINE COMMON unsigned int coefficient_count(const unsigned int max_l)
+__forceinline__ __host__ __device__ unsigned int coefficient_count(const unsigned int max_l)
 {
   return (max_l + 1) * (max_l + 1);
 }
-INLINE COMMON unsigned int coefficient_index(const unsigned int l, const int m)
+__forceinline__ __host__ __device__ unsigned int coefficient_index(const unsigned int l, const int m)
 {
   return l * (l + 1) + m;
 }
-INLINE COMMON int2         coefficient_lm   (const unsigned int index)
+__forceinline__ __host__ __device__ int2         coefficient_lm   (const unsigned int index)
 {
   int2 lm;
-  lm.x = floor(sqrtf(index));
-  lm.y = index - powf(lm.x, 2) - lm.x;
+  lm.x = int(floor(sqrtf(float(index))));
+  lm.y = int(index - powf(lm.x, 2) - lm.x);
   return lm;
 }
 
 template<typename precision>
-COMMON precision evaluate(
+__host__ __device__ precision evaluate(
   const unsigned int l    ,
   const          int m    ,
   const precision&   theta,
@@ -53,7 +53,7 @@ COMMON precision evaluate(
   return kml * associated_legendre(l, 0, cos(phi));
 }
 template<typename precision>
-COMMON precision evaluate(
+__host__ __device__ precision evaluate(
   const unsigned int index,
   const precision&   theta,
   const precision&   phi  )
@@ -64,7 +64,7 @@ COMMON precision evaluate(
 
 // Not used internally as the two for loops can also be further parallelized.
 template<typename precision>
-COMMON precision evaluate_sum(
+__host__ __device__ precision evaluate_sum(
   const unsigned int max_l       ,
   const precision&   theta       ,
   const precision&   phi         ,
@@ -78,11 +78,10 @@ COMMON precision evaluate_sum(
 }
 
 template<typename precision>
-COMMON precision is_zero(
+__host__ __device__ precision is_zero(
   const unsigned int coefficient_count,
   const precision*   coefficients )
 {
-  precision value = 0;
   for (auto index = 0; index < coefficient_count; index++)
     if (coefficients[index] != precision(0))
       return false;
@@ -90,7 +89,7 @@ COMMON precision is_zero(
 }
 
 template<typename precision>
-COMMON precision l1_distance(
+__host__ __device__ precision l1_distance(
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
   const precision*   rhs_coefficients )
@@ -103,7 +102,7 @@ COMMON precision l1_distance(
 
 // Based on "Rotation Invariant Spherical Harmonic Representation of 3D Shape Descriptors" by Kazhdan et al.
 template<typename precision>
-COMMON precision l2_distance(
+__host__ __device__ precision l2_distance(
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
   const precision*   rhs_coefficients )
@@ -116,11 +115,12 @@ COMMON precision l2_distance(
 
 // Call on a vector_count x coefficient_count(max_l) 2D grid.
 template<typename vector_type, typename precision>
-GLOBAL void calculate_matrix(
+__global__ void calculate_matrix(
   const unsigned int vector_count     ,
   const unsigned int coefficient_count,
   const vector_type* vectors          , 
-  precision*         output_matrix    )
+  precision*         output_matrix    ,
+  bool               even_only        = true)
 {
   auto vector_index      = blockIdx.x * blockDim.x + threadIdx.x;
   auto coefficient_index = blockIdx.y * blockDim.y + threadIdx.y;
@@ -129,13 +129,14 @@ GLOBAL void calculate_matrix(
       coefficient_index >= coefficient_count)
     return;
 
-  atomicAdd(
-    &output_matrix[vector_index + vector_count * coefficient_index], 
-    evaluate(coefficient_index, vectors[vector_index].y, vectors[vector_index].z));
+  if(!even_only || coefficient_index % 2 == 0)
+    atomicAdd(
+      &output_matrix[vector_index + vector_count * coefficient_index], 
+      evaluate(coefficient_index, vectors[vector_index].y, vectors[vector_index].z));
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename vector_type, typename precision>
-GLOBAL void calculate_matrices(
+__global__ void calculate_matrices(
   const uint3        dimensions       ,
   const unsigned int vector_count     , 
   const unsigned int coefficient_count,
@@ -161,7 +162,7 @@ GLOBAL void calculate_matrices(
 
 // Call on a tessellations.x x tessellations.y 2D grid.
 template<typename point_type>
-GLOBAL void sample(
+__global__ void sample(
   const unsigned int l             ,
   const int          m             ,
   const uint2        tessellations ,
@@ -192,13 +193,13 @@ GLOBAL void sample(
 }
 // Call on a tessellations.x x tessellations.y x coefficient_count(max_l) 3D grid.
 template<typename precision, typename point_type>
-GLOBAL void sample_sum(
+__global__ void sample_sum(
   const unsigned int coefficient_count   ,
   const uint2        tessellations       ,
   const precision*   coefficients        ,
   point_type*        output_points       ,
-  unsigned int*      output_indices      ,
-  const unsigned int base_index          = 0)
+  unsigned int*      output_indices      = nullptr,
+  const unsigned int base_index          = 0      )
 {
   auto longitude         = blockIdx.x * blockDim.x + threadIdx.x;
   auto latitude          = blockIdx.y * blockDim.y + threadIdx.y;
@@ -209,10 +210,8 @@ GLOBAL void sample_sum(
       coefficient_index >= coefficient_count)
     return;
 
-  auto point_offset = latitude + longitude * tessellations.y;
-  auto index_offset = 6 * point_offset;
-
-  auto& point = output_points[point_offset];
+  auto  point_offset = latitude + longitude * tessellations.y;
+  auto& point        = output_points[point_offset];
 
   if (coefficient_index == 0)
     point.x = 0;
@@ -221,8 +220,9 @@ GLOBAL void sample_sum(
   point.z =     M_PI * latitude  / (tessellations.y - 1);
   atomicAdd(&point.x, evaluate(coefficient_index, point.y, point.z) * coefficients[coefficient_index]);
 
-  if (coefficient_index == 0)
+  if (output_indices != nullptr && coefficient_index == 0)
   {
+    auto index_offset = 6 * point_offset;
     output_indices[index_offset    ] = base_index +  longitude                        * tessellations.y +  latitude,
     output_indices[index_offset + 1] = base_index +  longitude                        * tessellations.y + (latitude + 1) % tessellations.y,
     output_indices[index_offset + 2] = base_index + (longitude + 1) % tessellations.x * tessellations.y + (latitude + 1) % tessellations.y,
@@ -233,7 +233,7 @@ GLOBAL void sample_sum(
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename point_type>
-GLOBAL void sample_sums(
+__global__ void sample_sums(
   const uint3        dimensions         ,
   const unsigned int coefficient_count  ,
   const uint2        tessellations      ,
@@ -278,11 +278,58 @@ GLOBAL void sample_sums(
       output_points[points_offset + i].x = output_points[points_offset + i].x / maxima;
   }
 }
+// Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
+template<typename precision, typename vector_type>
+__global__ void extract_maxima(
+  // Input data parameters.
+  const uint3        dimensions       ,
+  const unsigned int coefficient_count,
+  const precision*   coefficients     ,
+  // Peak extraction parameters.
+  const uint2        tessellations    ,
+  const unsigned int maxima_count     ,
+  // Output data parameters.
+  vector_type*       maxima           )
+{
+  auto x = blockIdx.x * blockDim.x + threadIdx.x;
+  auto y = blockIdx.y * blockDim.y + threadIdx.y;
+  auto z = blockIdx.z * blockDim.z + threadIdx.z;
+  
+  if (x >= dimensions.x || 
+      y >= dimensions.y || 
+      z >= dimensions.z )
+    return;
+  
+  auto volume_index        = z + dimensions.z * (y + dimensions.y * x);
+  auto coefficients_offset = volume_index * coefficient_count;
+  auto points_size         = tessellations.x * tessellations.y;
+
+  float3* points;
+  cudaMalloc(reinterpret_cast<void**>(&points), points_size * sizeof(float3));
+
+  sample_sum<<<grid_size_3d(dim3(tessellations.x, tessellations.y, coefficient_count)), block_size_3d()>>>(
+    coefficient_count                 ,
+    tessellations                     ,
+    coefficients + coefficients_offset,
+    points                            );
+  cudaDeviceSynchronize();
+
+  thrust::sort(thrust::seq, points, points + points_size, 
+  [&] (const float3& lhs, const float3& rhs)
+  {
+    return lhs.x > rhs.x;
+  });
+
+  for(auto i = 0; i < maxima_count; i++)
+    maxima[volume_index * maxima_count + i] = points[i];
+
+  cudaFree(points);
+}
 
 // Call on a coefficient_count x coefficient_count x coefficient_count 3D grid.
 // Based on Modern Quantum Mechanics 2nd Edition page 216 by Jun John Sakurai.
 template<typename precision, typename atomics_precision = float>
-GLOBAL void product(
+__global__ void product(
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
   const precision*   rhs_coefficients ,
@@ -308,7 +355,7 @@ GLOBAL void product(
 }
 // Call on a dimensions.x x dimensions.y x dimensions.z 3D grid.
 template<typename precision, typename atomics_precision = float>
-GLOBAL void product(
+__global__ void product(
   const uint3        dimensions       ,
   const unsigned int coefficient_count,
   const precision*   lhs_coefficients ,
