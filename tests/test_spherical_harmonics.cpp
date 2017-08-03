@@ -1,10 +1,8 @@
-#include <math.h>
+#include "catch.hpp"
 
-#include <catch.hpp>
+#include <cush/spherical_harmonics.h>
 
-#include <spherical_harmonics.h>
-
-TEST_CASE("5- Spherical harmonics coefficient counts are computed.", "[spherical_harmonics]") {
+TEST_CASE("Spherical harmonics coefficient counts are computed.", "[spherical_harmonics]") {
   REQUIRE(cush::coefficient_count(0) == 1);
   REQUIRE(cush::coefficient_count(2) == 9);
   REQUIRE(cush::coefficient_count(4) == 25);
@@ -13,7 +11,7 @@ TEST_CASE("5- Spherical harmonics coefficient counts are computed.", "[spherical
 }
 
 // Computed by WolframAlpha: SphericalHarmonicY[l, m, theta, phi]
-TEST_CASE("6- Spherical harmonics are computed.", "[spherical_harmonics]") {
+TEST_CASE("Spherical harmonics are computed.", "[spherical_harmonics]") {
   REQUIRE(cush::evaluate(0, 0, M_PI / 2, M_PI / 2) == Approx( 0.2820947918));
   REQUIRE(cush::evaluate(2, 0, M_PI / 2, M_PI / 2) == Approx(-0.3153915652));
   REQUIRE(cush::evaluate(4, 2, M_PI / 2, M_PI / 2) == Approx( 0.3345232718));
